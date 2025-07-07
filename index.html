@@ -209,6 +209,8 @@
     <div class="game-container">
         <h1 class="text-4xl font-extrabold mb-8 text-yellow-400">Excel Jeopardy!</h1>
         <div class="score-display text-2xl font-bold mb-8">Score: <span id="player-score">0</span></div>
+        <div id="round-display" class="text-xl font-bold mb-4 text-blue-300">Round: Single Jeopardy</div>
+
 
         <div id="game-board" class="game-board grid grid-cols-5 gap-4 mb-8">
             <!-- Categories and point values will be dynamically inserted here -->
@@ -258,12 +260,14 @@
 
         // Game state variables
         let score = 0;
-        let questionsAnswered = 0;
-        let totalQuestions = 0;
+        let questionsAnsweredInRound = 0;
+        let totalQuestionsInRound = 0;
         let currentQuestion = null;
+        let currentRound = 'single'; // 'single', 'double', 'final'
 
         // DOM elements
         const playerScoreSpan = document.getElementById('player-score');
+        const roundDisplay = document.getElementById('round-display');
         const gameBoardDiv = document.getElementById('game-board');
         const gameMessagesDiv = document.getElementById('game-messages');
         const questionModal = document.getElementById('question-modal');
@@ -271,7 +275,7 @@
         const modalAnswers = document.getElementById('modal-answers');
         const answerFeedback = document.getElementById('answer-feedback');
         const continueButton = document.getElementById('continue-button');
-        const modalCloseButton = document.getElementById('modal-close-button'); // Not used for game flow, but good practice for modals
+        const modalCloseButton = document.getElementById('modal-close-button');
 
         const finalJeopardyModal = document.getElementById('final-jeopardy-modal');
         const finalJeopardyCategory = document.getElementById('final-jeopardy-category');
@@ -284,58 +288,116 @@
 
         // Game data (questions, categories, answers)
         const gameData = {
-            categories: [
-                {
-                    name: "Basic Formulas",
-                    questions: [
-                        { points: 100, question: "Which formula adds the values in cells A1 through A5?", answers: ["=SUM(A1:A5)", "=ADD(A1-A5)", "=TOTAL(A1,A5)", "=PLUS(A1:A5)"], correct: "=SUM(A1:A5)" },
-                        { points: 200, question: "To find the average of numbers in B1 to B10, which function would you use?", answers: ["=AVG(B1:B10)", "=AVERAGE(B1:B10)", "=MEAN(B1:B10)", "=SUM(B1:B10)/COUNT(B1:B10)"], correct: "=AVERAGE(B1:B10)" },
-                        { points: 300, question: "What formula would you use to get the largest number in a range C1:C20?", answers: ["=HIGH(C1:C20)", "=TOP(C1:C20)", "=MAX(C1:C20)", "=LARGEST(C1:C20,1)"], correct: "=MAX(C1:C20)" },
-                        { points: 400, question: "To count the number of cells in range D1:D15 that contain numbers, which function is appropriate?", answers: ["=COUNT(D1:D15)", "=COUNTA(D1:D15)", "=COUNTNUM(D1:D15)", "=NUMCOUNT(D1:D15)"], correct: "=COUNT(D1:D15)" },
-                        { points: 500, question: "Which formula calculates the product of cells E1 and E2?", answers: ["=PRODUCT(E1,E2)", "=E1*E2", "=MULTIPLY(E1,E2)", "=MULTIPLY(E1,E2)"], correct: "=E1*E2" } // Adjusted
-                    ]
-                },
-                {
-                    name: "Logical Functions",
-                    questions: [
-                        { points: 100, question: "The IF function returns one value if a condition is true, and another if it's what?", answers: ["False", "Empty", "Error", "Undefined"], correct: "False" },
-                        { points: 200, question: "Which function checks if ALL arguments are true?", answers: ["=OR()", "=IF()", "=NOT()", "=AND()"], correct: "=AND()" },
-                        { points: 300, question: "To check if ANY of the arguments are true, you would use which function?", answers: ["=AND()", "=IF()", "=OR()", "=XOR()"], correct: "=OR()" },
-                        { points: 400, question: "What does the formula `=IF(5>3, \"Yes\", \"No\")` return?", answers: ["Yes", "No", "Error", "True"], correct: "Yes" },
-                        { points: 500, question: "To reverse the logical value of its argument, which function is used?", answers: ["=REVERSE()", "=FLIP()", "=NOT()", "=INVERT()"], correct: "=NOT()" }
-                    ]
-                },
-                {
-                    name: "Text Functions",
-                    questions: [
-                        { points: 100, question: "Which function converts text to all uppercase letters?", answers: ["=UPPER()", "=CAPS()", "=BIG()", "=TEXTUP()"], correct: "=UPPER()" },
-                        { points: 200, question: "To combine text from several cells into one, you can use CONCATENATE or which symbol?", answers: ["&", "+", "$", "%"], correct: "&" },
-                        { points: 300, question: "What does `=LEFT(\"Excel\", 2)` return?", answers: ["Ex", "ce", "el", "Exc"], correct: "Ex" },
-                        { points: 400, question: "To remove extra spaces from text, use which function?", answers: ["=CLEAN()", "=TRIM()", "=SPACELESS()", "=REMOVE_SPACES()"], correct: "=TRIM()" },
-                        { points: 500, question: "Which function finds the starting position of one text string within another?", answers: ["=FIND()", "=SEARCH()", "=POSITION()", "=LOCATE()"], correct: "=FIND()" } // Adjusted
-                    ]
-                },
-                {
-                    name: "Lookup & Reference",
-                    questions: [
-                        { points: 100, question: "Which function looks for a value in the first column of a table and returns a value in the same row from a specified column?", answers: ["=HLOOKUP()", "=MATCH()", "=INDEX()", "=VLOOKUP()"], correct: "=VLOOKUP()" },
-                        { points: 200, question: "To find the relative position of an item in a range of cells, you would use which function?", answers: ["=INDEX()", "=VLOOKUP()", "=MATCH()", "=FIND()"], correct: "=MATCH()" },
-                        { points: 300, question: "Which function returns the value or reference of the cell at the intersection of a particular row and column in a given range?", answers: ["=MATCH()", "=VLOOKUP()", "=INDEX()", "=OFFSET()"], correct: "=INDEX()" },
-                        { points: 400, question: "What is the purpose of the `range_lookup` argument in VLOOKUP when set to FALSE?", answers: ["To find an approximate match", "To find an exact match", "To ignore errors", "To look up in a different range"], correct: "To find an exact match" },
-                        { points: 500, question: "Which function returns a reference to a range that is a specified number of rows and columns from a cell or range of cells?", answers: ["=INDEX()", "=CHOOSE()", "=OFFSET()", "=INDIRECT()"], correct: "=OFFSET()" }
-                    ]
-                },
-                {
-                    name: "Date & Time",
-                    questions: [
-                        { points: 100, question: "Which function returns the current date?", answers: ["=TODAY()", "=NOW()", "=DATE()", "=CURRENTDATE()"], correct: "=TODAY()" },
-                        { points: 200, question: "To get the current date and time, which function would you use?", answers: ["=TODAY()", "=NOW()", "=TIME()", "=CURRENTDATETIME()"], correct: "=NOW()" },
-                        { points: 300, question: "What does `=YEAR(\"1/15/2023\")` return?", answers: ["1", "15", "2023", "Error"], correct: "2023" },
-                        { points: 400, question: "Which function calculates the number of whole workdays between two dates?", answers: ["=DAYS()", "=NETWORKDAYS()", "=WORKDAY()", "=DATEDIF()"], correct: "=NETWORKDAYS()" },
-                        { points: 500, question: "To add a specified number of months to a date and return the date that many months in the future, use which function?", answers: ["=ADDMONTHS()", "=EDATE()", "=DATEADD()", "=MONTHS()"], correct: "=EDATE()" }
-                    ]
-                }
-            ],
+            singleJeopardy: {
+                name: "Single Jeopardy",
+                categories: [
+                    {
+                        name: "Basic Formulas",
+                        questions: [
+                            { points: 100, question: "Which formula adds cells A1 and A2?", answers: ["=SUM(A1,A2)", "=ADD(A1+A2)", "=A1+A2", "=A1&A2"], correct: "=A1+A2" },
+                            { points: 200, question: "To subtract C2 from C1, what formula would you use?", answers: ["=C1-C2", "=SUBTRACT(C1,C2)", "=C1/C2", "=C1*C2"], correct: "=C1-C2" },
+                            { points: 300, question: "Which symbol is used for multiplication in Excel?", answers: ["/", "+", "*", "-"], correct: "*" },
+                            { points: 400, question: "What does the formula `=5+3*2` evaluate to?", answers: ["16", "11", "10", "13"], correct: "11" },
+                            { points: 500, question: "To divide cell D1 by D2, which formula is correct?", answers: ["=D1\\D2", "=D1/D2", "=DIVIDE(D1,D2)", "=D1:D2"], correct: "=D1/D2" }
+                        ]
+                    },
+                    {
+                        name: "Simple Functions",
+                        questions: [
+                            { points: 100, question: "Which function finds the smallest number in a range E1:E5?", answers: ["=SMALL(E1:E5)", "=MIN(E1:E5)", "=LOW(E1:E5)", "=LEAST(E1:E5)"], correct: "=MIN(E1:E5)" },
+                            { points: 200, question: "To count non-empty cells in F1:F10, use which function?", answers: ["=COUNT(F1:F10)", "=COUNTA(F1:F10)", "=COUNTIF(F1:F10)", "=COUNTBLANK(F1:F10)"], correct: "=COUNTA(F1:F10)" },
+                            { points: 300, question: "What does `=ROUND(3.14159, 2)` return?", answers: ["3.14", "3.1", "3.141", "3.142"], correct: "3.14" },
+                            { points: 400, question: "Which function returns the absolute value of a number?", answers: ["=ABS()", "=ABSOLUTE()", "=POS()", "=MAGNITUDE()"], correct: "=ABS()" },
+                            { points: 500, question: "To find the square root of a number in G1, what formula would you use?", answers: ["=SQRT(G1)", "=ROOT(G1)", "=POWER(G1,0.5)", "=G1^0.5"], correct: "=SQRT(G1)" }
+                        ]
+                    },
+                    {
+                        name: "Cell References",
+                        questions: [
+                            { points: 100, question: "What is a relative cell reference?", answers: ["A reference that doesn't change when copied", "A reference that changes when copied", "A reference to another sheet", "A reference to a named range"], correct: "A reference that changes when copied" },
+                            { points: 200, question: "How do you make a cell reference absolute (e.g., A1)?", answers: ["A1$", "$A$1", "#A1#", "!A1"], correct: "$A$1" },
+                            { points: 300, question: "What does `A$1` mean?", answers: ["Column A is relative, row 1 is absolute", "Column A is absolute, row 1 is relative", "Both are relative", "Both are absolute"], correct: "Column A is relative, row 1 is absolute" },
+                            { points: 400, question: "Which type of reference is `A1`?", answers: ["Absolute", "Mixed", "Relative", "Named"], correct: "Relative" },
+                            { points: 500, question: "If you copy a formula `=B1+C1` from D1 to D2, what does it become in D2?", answers: ["=B1+C1", "=B2+C2", "=C1+D1", "=A1+B1"], correct: "=B2+C2" }
+                        ]
+                    },
+                    {
+                        name: "Basic Text",
+                        questions: [
+                            { points: 100, question: "Which function converts text to all lowercase letters?", answers: ["=LOWER()", "=SMALL()", "=TEXTLOW()", "=DOWN()"], correct: "=LOWER()" },
+                            { points: 200, question: "To get the first 3 characters of text in cell A1, use which function?", answers: ["=RIGHT(A1,3)", "=MID(A1,1,3)", "=LEFT(A1,3)", "=PART(A1,3)"], correct: "=LEFT(A1,3)" },
+                            { points: 300, question: "What does `=LEN(\"Hello\")` return?", answers: ["4", "5", "6", "7"], correct: "5" },
+                            { points: 400, question: "Which function capitalizes the first letter of each word in a text string?", answers: ["=UPPER()", "=LOWER()", "=PROPER()", "=CAPITALIZE()"], correct: "=PROPER()" },
+                            { points: 500, question: "To replace part of a text string with another text string, use which function?", answers: ["=CHANGE()", "=SUBSTITUTE()", "=REPLACE()", "=ALTER()"], correct: "=SUBSTITUTE()" }
+                        ]
+                    },
+                    {
+                        name: "Date Basics",
+                        questions: [
+                            { points: 100, question: "Which function returns the current date and time?", answers: ["=TODAY()", "=DATE()", "=NOW()", "=TIME()"], correct: "=NOW()" },
+                            { points: 200, question: "To extract the year from a date in cell A1, use which function?", answers: ["=DAY(A1)", "=MONTH(A1)", "=YEAR(A1)", "=DATE(A1)"], correct: "=YEAR(A1)" },
+                            { points: 300, question: "What does `=DAY(\"2023-07-15\")` return?", answers: ["2023", "7", "15", "Error"], correct: "15" },
+                            { points: 400, question: "Which function combines year, month, and day into a date?", answers: ["=DATE()", "=TODAY()", "=CALENDAR()", "=MAKEDATE()"], correct: "=DATE()" },
+                            { points: 500, question: "To calculate the number of days between two dates, you can simply subtract them. True or False?", answers: ["True", "False", "Depends on format", "Only for workdays"], correct: "True" }
+                        ]
+                    }
+                ]
+            },
+            doubleJeopardy: {
+                name: "Double Jeopardy",
+                categories: [
+                    {
+                        name: "Advanced Formulas",
+                        questions: [
+                            { points: 200, question: "Which function sums values in a range that meet multiple criteria?", answers: ["=SUMIF()", "=SUMIFS()", "=SUMPRODUCT()", "=DSUM()"], correct: "=SUMIFS()" },
+                            { points: 400, question: "To count cells in a range that meet multiple criteria, which function is used?", answers: ["=COUNTIF()", "=COUNTIFS()", "=DCOUNT()", "=COUNTBLANK()"], correct: "=COUNTIFS()" },
+                            { points: 600, question: "What is an array formula in Excel?", answers: ["A formula that only works on single cells", "A formula that performs multiple calculations on one or more sets of items", "A formula used for database operations", "A formula that refers to a named range"], correct: "A formula that performs multiple calculations on one or more sets of items" },
+                            { points: 800, question: "Which function can retrieve data from a table based on both row and column criteria?", answers: ["=VLOOKUP()", "=HLOOKUP()", "=INDEX(MATCH())", "=XLOOKUP()"], correct: "=INDEX(MATCH())" },
+                            { points: 1000, question: "To return a value from a list of values based on an index number, use which function?", answers: ["=INDEX()", "=MATCH()", "=CHOOSE()", "=LOOKUP()"], correct: "=CHOOSE()" }
+                        ]
+                    },
+                    {
+                        name: "Data Tools",
+                        questions: [
+                            { points: 200, question: "Which feature automatically applies formatting to cells based on specified criteria?", answers: ["Cell Styles", "Format Painter", "Conditional Formatting", "Themes"], correct: "Conditional Formatting" },
+                            { points: 400, question: "To restrict data entry to a predefined list of values in a cell, you would use which feature?", answers: ["Text to Columns", "Flash Fill", "Data Validation", "Remove Duplicates"], correct: "Data Validation" },
+                            { points: 600, question: "What is the primary purpose of 'What-If Analysis' tools like Goal Seek?", answers: ["To analyze historical data trends", "To find the input value needed to achieve a desired result", "To create complex charts", "To automate repetitive tasks"], correct: "To find the input value needed to achieve a desired result" },
+                            { points: 800, question: "Which feature can quickly split text from one column into multiple columns?", answers: ["Flash Fill", "Text to Columns", "Concatenate", "Data Grouping"], correct: "Text to Columns" },
+                            { points: 1000, question: "To consolidate data from multiple worksheets or workbooks into a single report, which feature is commonly used?", answers: ["Consolidate", "Merge & Center", "Subtotal", "Outline"], correct: "Consolidate" }
+                        ]
+                    },
+                    {
+                        name: "Pivot Tables & Charts",
+                        questions: [
+                            { points: 200, question: "What is the primary benefit of using a PivotTable?", answers: ["To create complex formulas", "To summarize and analyze large datasets", "To perform advanced calculations", "To format cells quickly"], correct: "To summarize and analyze large datasets" },
+                            { points: 400, question: "Which chart type is best for showing trends over time?", answers: ["Pie Chart", "Bar Chart", "Line Chart", "Scatter Plot"], correct: "Line Chart" },
+                            { points: 600, question: "In a PivotTable, what is the area where you place fields to filter the data?", answers: ["Rows", "Columns", "Values", "Filters"], correct: "Filters" },
+                            { points: 800, question: "What is a 'Slicer' used for in Excel?", answers: ["To cut data from a table", "To provide interactive filtering for PivotTables/Charts", "To combine multiple charts", "To sort data in a specific order"], correct: "To provide interactive filtering for PivotTables/Charts" },
+                            { points: 1000, question: "Which chart type is ideal for comparing values across different categories?", answers: ["Line Chart", "Pie Chart", "Bar Chart", "Area Chart"], correct: "Bar Chart" }
+                        ]
+                    },
+                    {
+                        name: "Macros & VBA",
+                        questions: [
+                            { points: 200, question: "What does VBA stand for?", answers: ["Visual Basic for Applications", "Very Basic Automation", "Variable Business Analytics", "Virtual Basic Array"], correct: "Visual Basic for Applications" },
+                            { points: 400, question: "Which tab in Excel do you need to enable to record or write macros?", answers: ["Home", "Insert", "Data", "Developer"], correct: "Developer" },
+                            { points: 600, question: "What is a 'Macro' in Excel?", answers: ["A type of formula", "A sequence of commands and actions that can be repeated", "A large dataset", "A complex chart template"], correct: "A sequence of commands and actions that can be repeated" },
+                            { points: 800, question: "Which object represents a single worksheet in VBA?", answers: ["Workbook", "Range", "Sheet", "Worksheet"], correct: "Worksheet" },
+                            { points: 1000, question: "To run a macro automatically when a workbook opens, where would you typically place the code?", answers: ["Module1", "ThisWorkbook", "Sheet1", "A new module"], correct: "ThisWorkbook" }
+                        ]
+                    },
+                    {
+                        name: "Error Handling & Auditing",
+                        questions: [
+                            { points: 200, question: "What does the `#DIV/0!` error indicate?", answers: ["Incorrect data type", "Division by zero", "Formula not found", "Value not available"], correct: "Division by zero" },
+                            { points: 400, question: "Which error indicates that Excel doesn't recognize text in a formula?", answers: ["#VALUE!", "#REF!", "#NAME?", "#N/A"], correct: "#NAME?" },
+                            { points: 600, question: "Which function can be used to check if a cell contains an error?", answers: ["=ISERROR()", "=ERRORCHECK()", "=HASERROR()", "=FINDERROR()"], correct: "=ISERROR()" },
+                            { points: 800, question: "What does 'Trace Precedents' do in Excel's Formula Auditing tools?", answers: ["Shows cells that depend on the active cell", "Shows cells that affect the active cell's value", "Highlights all errors", "Calculates the formula result"], correct: "Shows cells that affect the active cell's value" },
+                            { points: 1000, question: "Which error indicates a cell reference is invalid?", answers: ["#VALUE!", "#REF!", "#N/A", "#NUM!"], correct: "#REF!" }
+                        ]
+                    }
+                ]
+            },
             finalJeopardy: {
                 category: "Financial Functions",
                 question: "You have a loan amount in cell A1, an annual interest rate in B1, and the number of payments in C1. Write a formula to calculate the monthly payment for this loan.",
@@ -344,11 +406,16 @@
         };
 
         // Initialize game board
-        function initializeGameBoard() {
+        function initializeGameBoard(roundType) {
             gameBoardDiv.innerHTML = ''; // Clear existing board
+            questionsAnsweredInRound = 0; // Reset for new round
+            totalQuestionsInRound = 0; // Reset for new round
+
+            const currentRoundData = gameData[roundType];
+            roundDisplay.textContent = `Round: ${currentRoundData.name}`;
 
             // Create category headers
-            gameData.categories.forEach(category => {
+            currentRoundData.categories.forEach(category => {
                 const categoryHeader = document.createElement('div');
                 categoryHeader.className = 'category-header rounded-lg p-3 text-center font-bold';
                 categoryHeader.textContent = category.name;
@@ -356,18 +423,19 @@
             });
 
             // Create question point buttons
-            // Iterate through points (assuming all categories have same points)
-            for (let i = 0; i < gameData.categories[0].questions.length; i++) {
-                gameData.categories.forEach((category, categoryIndex) => {
+            // Iterate through points (assuming all categories have same points structure)
+            for (let i = 0; i < currentRoundData.categories[0].questions.length; i++) {
+                currentRoundData.categories.forEach((category, categoryIndex) => {
                     const question = category.questions[i];
                     const pointButton = document.createElement('button');
                     pointButton.className = 'point-button rounded-lg p-4 font-bold transition-all duration-200 ease-in-out';
                     pointButton.textContent = question.points;
                     pointButton.dataset.categoryIndex = categoryIndex;
                     pointButton.dataset.questionIndex = i;
+                    pointButton.dataset.roundType = roundType; // Store round type on button
                     pointButton.addEventListener('click', handleQuestionClick);
                     gameBoardDiv.appendChild(pointButton);
-                    totalQuestions++;
+                    totalQuestionsInRound++;
                 });
             }
             updateScoreDisplay();
@@ -385,8 +453,9 @@
 
             const categoryIndex = parseInt(button.dataset.categoryIndex);
             const questionIndex = parseInt(button.dataset.questionIndex);
+            const roundType = button.dataset.roundType; // Get round type from button
 
-            currentQuestion = gameData.categories[categoryIndex].questions[questionIndex];
+            currentQuestion = gameData[roundType].categories[categoryIndex].questions[questionIndex];
             currentQuestion.element = button; // Store reference to the button clicked
 
             displayQuestionModal(currentQuestion);
@@ -441,7 +510,7 @@
             }
 
             updateScoreDisplay();
-            questionsAnswered++;
+            questionsAnsweredInRound++;
             currentQuestion.element.classList.add('answered'); // Mark the board button as answered
             continueButton.classList.remove('hidden'); // Show continue button
             continueButton.addEventListener('click', closeQuestionModal, { once: true }); // Ensure it only fires once
@@ -450,9 +519,17 @@
         // Close the question modal
         function closeQuestionModal() {
             questionModal.classList.remove('show');
-            // Check if all questions are answered
-            if (questionsAnswered === totalQuestions) {
-                setTimeout(startFinalJeopardy, 500); // Small delay before final jeopardy
+            // Check if all questions in the current round are answered
+            if (questionsAnsweredInRound === totalQuestionsInRound) {
+                if (currentRound === 'single') {
+                    currentRound = 'double';
+                    setTimeout(() => {
+                        showMessage("Entering Double Jeopardy!", 'yellow');
+                        initializeGameBoard('doubleJeopardy');
+                    }, 1000); // Small delay before starting Double Jeopardy
+                } else if (currentRound === 'double') {
+                    setTimeout(startFinalJeopardy, 500); // Small delay before final jeopardy
+                }
             }
         }
 
@@ -484,12 +561,25 @@
             finalJeopardyModal.classList.add('show');
             finalJeopardyCategory.textContent = gameData.finalJeopardy.category;
             finalJeopardyQuestion.textContent = gameData.finalJeopardy.question;
-            betAmountInput.max = score; // Max bet is current score
-            betAmountInput.value = Math.min(score, 1000); // Suggest a default bet, e.g., 1000 or current score if less
+
+            // Adjust bet amount input based on current score
+            betAmountInput.max = Math.max(0, score); // Max bet cannot be negative
+            betAmountInput.value = Math.max(0, Math.min(score, 1000)); // Suggest a default bet, e.g., 1000, but not more than current score, and not less than 0
+
             finalFeedback.textContent = '';
             submitFinalJeopardyButton.classList.remove('hidden');
             playAgainButton.classList.add('hidden');
-            betAmountInput.disabled = false;
+
+            // Enable/disable betting based on score
+            if (score <= 0) {
+                betAmountInput.value = 0;
+                betAmountInput.disabled = true;
+                finalFeedback.textContent = "Your score is 0 or negative. You cannot bet in Final Jeopardy.";
+                finalFeedback.className = 'text-xl mt-4 font-bold text-yellow-400';
+            } else {
+                betAmountInput.disabled = false;
+            }
+
             finalAnswerInput.disabled = false;
             finalAnswerInput.value = ''; // Clear previous input
         }
@@ -500,6 +590,7 @@
             const finalAnswer = finalAnswerInput.value.trim();
             const correctAnswer = gameData.finalJeopardy.correctAnswer.trim();
 
+            // Re-validate bet amount, especially if user could manually change it
             if (isNaN(bet) || bet < 0 || bet > score) {
                 finalFeedback.textContent = "Invalid bet amount. Please enter a valid number between 0 and your current score.";
                 finalFeedback.className = 'text-xl mt-4 font-bold text-red-400';
@@ -526,16 +617,17 @@
         // Play Again functionality
         playAgainButton.addEventListener('click', () => {
             score = 0;
-            questionsAnswered = 0;
-            totalQuestions = 0;
+            questionsAnsweredInRound = 0;
+            totalQuestionsInRound = 0;
+            currentRound = 'single'; // Reset round
             updateScoreDisplay();
             finalJeopardyModal.classList.remove('show');
             gameBoardDiv.classList.remove('hidden');
-            initializeGameBoard(); // Re-initialize the board for a new game
+            initializeGameBoard('singleJeopardy'); // Start a new game with Single Jeopardy
         });
 
         // Initialize the game when the window loads
-        window.onload = initializeGameBoard;
+        window.onload = () => initializeGameBoard('singleJeopardy'); // Start with Single Jeopardy
 
     </script>
 </body>
