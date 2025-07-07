@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Jeopardy Game</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the game */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background */
+            color: #e2e8f0; /* Light text */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .game-container {
+            background-color: #2d3748; /* Darker background for container */
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            padding: 30px;
+            width: 100%;
+            max-width: 1200px;
+            text-align: center;
+            border: 2px solid #4a5568;
+        }
+        .category-header {
+            background-color: #4a5568;
+            color: #fff;
+            padding: 15px 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            min-height: 80px; /* Ensure consistent height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .point-button {
+            background-color: #38a169; /* Green for points */
+            color: #fff;
+            padding: 20px 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+            min-height: 80px; /* Ensure consistent height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .point-button:hover:not(.answered) {
+            background-color: #2f855a;
+            transform: translateY(-3px);
+        }
+        .point-button.answered {
+            background-color: #6b7280; /* Grey for answered */
+            cursor: not-allowed;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        .question-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .question-modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: #2d3748;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+            border: 2px solid #4a5568;
+            position: relative;
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .modal-close-button:hover {
+            color: #f56565;
+        }
+        .answer-button {
+            background-color: #4299e1; /* Blue for answers */
+            color: #fff;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            width: 100%;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .answer-button:hover {
+            background-color: #3182ce;
+            transform: translateY(-2px);
+        }
+        .answer-button.correct {
+            background-color: #38a169; /* Green for correct */
+        }
+        .answer-button.incorrect {
+            background-color: #e53e3e; /* Red for incorrect */
+        }
+        .final-jeopardy-input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 8px;
+            border: 1px solid #4a5568;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            font-size: 1.1em;
+        }
+        .submit-button {
+            background-color: #d69e2e; /* Orange for submit */
+            color: #fff;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            margin-top: 20px;
+        }
+        .submit-button:hover {
+            background-color: #b7791f;
+            transform: translateY(-2px);
+        }
+        .message-box {
+            background-color: #4a5568;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 1.1em;
+            color: #e2e8f0;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-board {
+                grid-template-columns: repeat(2, 1fr); /* 2 columns on smaller screens */
+            }
+            .category-header, .point-button {
+                font-size: 0.9em;
+                min-height: 60px;
+            }
+            .modal-content {
+                padding: 20px;
+            }
+            .answer-button {
+                font-size: 1em;
+                padding: 12px 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-board {
+                grid-template-columns: 1fr; /* Single column on very small screens */
+            }
+            .category-header, .point-button {
+                font-size: 0.8em;
+                min-height: 50px;
+            }
+            .modal-content {
+                padding: 15px;
+            }
+            .answer-button {
+                font-size: 0.9em;
+                padding: 10px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="text-4xl font-extrabold mb-8 text-yellow-400">Excel Jeopardy!</h1>
+        <div class="score-display text-2xl font-bold mb-8">Score: <span id="player-score">0</span></div>
+
+        <div id="game-board" class="game-board grid grid-cols-5 gap-4 mb-8">
+            <!-- Categories and point values will be dynamically inserted here -->
+        </div>
+
+        <div id="game-messages" class="message-box hidden"></div>
+
+        <!-- Question Modal -->
+        <div id="question-modal" class="question-modal">
+            <div class="modal-content">
+                <button id="modal-close-button" class="modal-close-button hidden">&times;</button>
+                <h2 id="modal-question" class="text-3xl font-semibold mb-6"></h2>
+                <div id="modal-answers" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Answer buttons will be dynamically inserted here -->
+                </div>
+                <div id="answer-feedback" class="text-xl mt-4 font-bold"></div>
+                <button id="continue-button" class="submit-button mt-6 hidden">Continue</button>
+            </div>
+        </div>
+
+        <!-- Final Jeopardy Modal -->
+        <div id="final-jeopardy-modal" class="question-modal">
+            <div class="modal-content">
+                <h2 class="text-3xl font-semibold mb-6 text-red-400">FINAL JEOPARDY!</h2>
+                <h3 id="final-jeopardy-category" class="text-2xl font-bold mb-4"></h3>
+                <p id="final-jeopardy-question" class="text-xl mb-6"></p>
+                <div class="mb-4">
+                    <label for="bet-amount" class="block text-lg font-medium mb-2">Your Bet:</label>
+                    <input type="number" id="bet-amount" class="final-jeopardy-input" placeholder="Enter your bet (max: current score)" min="0">
+                </div>
+                <div class="mb-6">
+                    <label for="final-answer" class="block text-lg font-medium mb-2">Your Formula Answer:</label>
+                    <input type="text" id="final-answer" class="final-jeopardy-input" placeholder="e.g., =SUM(A1:A10)">
+                </div>
+                <button id="submit-final-jeopardy" class="submit-button">Submit Final Answer</button>
+                <div id="final-feedback" class="text-xl mt-4 font-bold"></div>
+                <button id="play-again-button" class="submit-button mt-6 hidden">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for Firebase (will be provided by the Canvas environment)
+        // const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        // const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Game state variables
+        let score = 0;
+        let questionsAnswered = 0;
+        let totalQuestions = 0;
+        let currentQuestion = null;
+
+        // DOM elements
+        const playerScoreSpan = document.getElementById('player-score');
+        const gameBoardDiv = document.getElementById('game-board');
+        const gameMessagesDiv = document.getElementById('game-messages');
+        const questionModal = document.getElementById('question-modal');
+        const modalQuestion = document.getElementById('modal-question');
+        const modalAnswers = document.getElementById('modal-answers');
+        const answerFeedback = document.getElementById('answer-feedback');
+        const continueButton = document.getElementById('continue-button');
+        const modalCloseButton = document.getElementById('modal-close-button'); // Not used for game flow, but good practice for modals
+
+        const finalJeopardyModal = document.getElementById('final-jeopardy-modal');
+        const finalJeopardyCategory = document.getElementById('final-jeopardy-category');
+        const finalJeopardyQuestion = document.getElementById('final-jeopardy-question');
+        const betAmountInput = document.getElementById('bet-amount');
+        const finalAnswerInput = document.getElementById('final-answer');
+        const submitFinalJeopardyButton = document.getElementById('submit-final-jeopardy');
+        const finalFeedback = document.getElementById('final-feedback');
+        const playAgainButton = document.getElementById('play-again-button');
+
+        // Game data (questions, categories, answers)
+        const gameData = {
+            categories: [
+                {
+                    name: "Basic Formulas",
+                    questions: [
+                        { points: 100, question: "Which formula adds the values in cells A1 through A5?", answers: ["=SUM(A1:A5)", "=ADD(A1-A5)", "=TOTAL(A1,A5)", "=PLUS(A1:A5)"], correct: "=SUM(A1:A5)" },
+                        { points: 200, question: "To find the average of numbers in B1 to B10, which function would you use?", answers: ["=AVG(B1:B10)", "=AVERAGE(B1:B10)", "=MEAN(B1:B10)", "=SUM(B1:B10)/COUNT(B1:B10)"], correct: "=AVERAGE(B1:B10)" },
+                        { points: 300, question: "What formula would you use to get the largest number in a range C1:C20?", answers: ["=HIGH(C1:C20)", "=TOP(C1:C20)", "=MAX(C1:C20)", "=LARGEST(C1:C20,1)"], correct: "=MAX(C1:C20)" },
+                        { points: 400, question: "To count the number of cells in range D1:D15 that contain numbers, which function is appropriate?", answers: ["=COUNT(D1:D15)", "=COUNTA(D1:D15)", "=COUNTNUM(D1:D15)", "=NUMCOUNT(D1:D15)"], correct: "=COUNT(D1:D15)" },
+                        { points: 500, question: "Which formula calculates the product of cells E1 and E2?", answers: ["=PRODUCT(E1,E2)", "=E1*E2", "=MULTIPLY(E1,E2)", "=MULTIPLY(E1,E2)"], correct: "=E1*E2" } // Adjusted
+                    ]
+                },
+                {
+                    name: "Logical Functions",
+                    questions: [
+                        { points: 100, question: "The IF function returns one value if a condition is true, and another if it's what?", answers: ["False", "Empty", "Error", "Undefined"], correct: "False" },
+                        { points: 200, question: "Which function checks if ALL arguments are true?", answers: ["=OR()", "=IF()", "=NOT()", "=AND()"], correct: "=AND()" },
+                        { points: 300, question: "To check if ANY of the arguments are true, you would use which function?", answers: ["=AND()", "=IF()", "=OR()", "=XOR()"], correct: "=OR()" },
+                        { points: 400, question: "What does the formula `=IF(5>3, \"Yes\", \"No\")` return?", answers: ["Yes", "No", "Error", "True"], correct: "Yes" },
+                        { points: 500, question: "To reverse the logical value of its argument, which function is used?", answers: ["=REVERSE()", "=FLIP()", "=NOT()", "=INVERT()"], correct: "=NOT()" }
+                    ]
+                },
+                {
+                    name: "Text Functions",
+                    questions: [
+                        { points: 100, question: "Which function converts text to all uppercase letters?", answers: ["=UPPER()", "=CAPS()", "=BIG()", "=TEXTUP()"], correct: "=UPPER()" },
+                        { points: 200, question: "To combine text from several cells into one, you can use CONCATENATE or which symbol?", answers: ["&", "+", "$", "%"], correct: "&" },
+                        { points: 300, question: "What does `=LEFT(\"Excel\", 2)` return?", answers: ["Ex", "ce", "el", "Exc"], correct: "Ex" },
+                        { points: 400, question: "To remove extra spaces from text, use which function?", answers: ["=CLEAN()", "=TRIM()", "=SPACELESS()", "=REMOVE_SPACES()"], correct: "=TRIM()" },
+                        { points: 500, question: "Which function finds the starting position of one text string within another?", answers: ["=FIND()", "=SEARCH()", "=POSITION()", "=LOCATE()"], correct: "=FIND()" } // Adjusted
+                    ]
+                },
+                {
+                    name: "Lookup & Reference",
+                    questions: [
+                        { points: 100, question: "Which function looks for a value in the first column of a table and returns a value in the same row from a specified column?", answers: ["=HLOOKUP()", "=MATCH()", "=INDEX()", "=VLOOKUP()"], correct: "=VLOOKUP()" },
+                        { points: 200, question: "To find the relative position of an item in a range of cells, you would use which function?", answers: ["=INDEX()", "=VLOOKUP()", "=MATCH()", "=FIND()"], correct: "=MATCH()" },
+                        { points: 300, question: "Which function returns the value or reference of the cell at the intersection of a particular row and column in a given range?", answers: ["=MATCH()", "=VLOOKUP()", "=INDEX()", "=OFFSET()"], correct: "=INDEX()" },
+                        { points: 400, question: "What is the purpose of the `range_lookup` argument in VLOOKUP when set to FALSE?", answers: ["To find an approximate match", "To find an exact match", "To ignore errors", "To look up in a different range"], correct: "To find an exact match" },
+                        { points: 500, question: "Which function returns a reference to a range that is a specified number of rows and columns from a cell or range of cells?", answers: ["=INDEX()", "=CHOOSE()", "=OFFSET()", "=INDIRECT()"], correct: "=OFFSET()" }
+                    ]
+                },
+                {
+                    name: "Date & Time",
+                    questions: [
+                        { points: 100, question: "Which function returns the current date?", answers: ["=TODAY()", "=NOW()", "=DATE()", "=CURRENTDATE()"], correct: "=TODAY()" },
+                        { points: 200, question: "To get the current date and time, which function would you use?", answers: ["=TODAY()", "=NOW()", "=TIME()", "=CURRENTDATETIME()"], correct: "=NOW()" },
+                        { points: 300, question: "What does `=YEAR(\"1/15/2023\")` return?", answers: ["1", "15", "2023", "Error"], correct: "2023" },
+                        { points: 400, question: "Which function calculates the number of whole workdays between two dates?", answers: ["=DAYS()", "=NETWORKDAYS()", "=WORKDAY()", "=DATEDIF()"], correct: "=NETWORKDAYS()" },
+                        { points: 500, question: "To add a specified number of months to a date and return the date that many months in the future, use which function?", answers: ["=ADDMONTHS()", "=EDATE()", "=DATEADD()", "=MONTHS()"], correct: "=EDATE()" }
+                    ]
+                }
+            ],
+            finalJeopardy: {
+                category: "Financial Functions",
+                question: "You have a loan amount in cell A1, an annual interest rate in B1, and the number of payments in C1. Write a formula to calculate the monthly payment for this loan.",
+                correctAnswer: "=PMT(B1/12, C1, -A1)" // Using -A1 for loan amount as PMT returns negative for payment
+            }
+        };
+
+        // Initialize game board
+        function initializeGameBoard() {
+            gameBoardDiv.innerHTML = ''; // Clear existing board
+
+            // Create category headers
+            gameData.categories.forEach(category => {
+                const categoryHeader = document.createElement('div');
+                categoryHeader.className = 'category-header rounded-lg p-3 text-center font-bold';
+                categoryHeader.textContent = category.name;
+                gameBoardDiv.appendChild(categoryHeader);
+            });
+
+            // Create question point buttons
+            // Iterate through points (assuming all categories have same points)
+            for (let i = 0; i < gameData.categories[0].questions.length; i++) {
+                gameData.categories.forEach((category, categoryIndex) => {
+                    const question = category.questions[i];
+                    const pointButton = document.createElement('button');
+                    pointButton.className = 'point-button rounded-lg p-4 font-bold transition-all duration-200 ease-in-out';
+                    pointButton.textContent = question.points;
+                    pointButton.dataset.categoryIndex = categoryIndex;
+                    pointButton.dataset.questionIndex = i;
+                    pointButton.addEventListener('click', handleQuestionClick);
+                    gameBoardDiv.appendChild(pointButton);
+                    totalQuestions++;
+                });
+            }
+            updateScoreDisplay();
+        }
+
+        // Handle click on a point button
+        function handleQuestionClick(event) {
+            const button = event.target;
+
+            // If question has already been answered, do nothing
+            if (button.classList.contains('answered')) {
+                showMessage("This question has already been answered. Please choose another.", 'yellow');
+                return;
+            }
+
+            const categoryIndex = parseInt(button.dataset.categoryIndex);
+            const questionIndex = parseInt(button.dataset.questionIndex);
+
+            currentQuestion = gameData.categories[categoryIndex].questions[questionIndex];
+            currentQuestion.element = button; // Store reference to the button clicked
+
+            displayQuestionModal(currentQuestion);
+        }
+
+        // Display the question modal
+        function displayQuestionModal(question) {
+            modalQuestion.textContent = question.question;
+            modalAnswers.innerHTML = ''; // Clear previous answers
+            answerFeedback.textContent = ''; // Clear feedback
+            continueButton.classList.add('hidden'); // Hide continue button initially
+
+            // Shuffle answers
+            const shuffledAnswers = [...question.answers].sort(() => Math.random() - 0.5);
+
+            shuffledAnswers.forEach(answer => {
+                const answerButton = document.createElement('button');
+                answerButton.className = 'answer-button rounded-lg p-3 font-semibold transition-all duration-200 ease-in-out';
+                answerButton.textContent = answer;
+                answerButton.dataset.answer = answer;
+                answerButton.addEventListener('click', handleAnswerClick);
+                modalAnswers.appendChild(answerButton);
+            });
+
+            questionModal.classList.add('show');
+        }
+
+        // Handle answer click
+        function handleAnswerClick(event) {
+            const selectedAnswer = event.target.dataset.answer;
+            const allAnswerButtons = modalAnswers.querySelectorAll('.answer-button');
+
+            // Disable all answer buttons after one is selected
+            allAnswerButtons.forEach(button => button.disabled = true);
+
+            if (selectedAnswer === currentQuestion.correct) {
+                score += currentQuestion.points;
+                answerFeedback.textContent = `Correct! You gained ${currentQuestion.points} points.`;
+                answerFeedback.className = 'text-xl mt-4 font-bold text-green-400';
+                event.target.classList.add('correct');
+            } else {
+                score -= currentQuestion.points;
+                answerFeedback.textContent = `Incorrect! You lost ${currentQuestion.points} points. The correct answer was: "${currentQuestion.correct}"`;
+                answerFeedback.className = 'text-xl mt-4 font-bold text-red-400';
+                event.target.classList.add('incorrect');
+                // Highlight the correct answer if incorrect choice was made
+                allAnswerButtons.forEach(button => {
+                    if (button.dataset.answer === currentQuestion.correct) {
+                        button.classList.add('correct');
+                    }
+                });
+            }
+
+            updateScoreDisplay();
+            questionsAnswered++;
+            currentQuestion.element.classList.add('answered'); // Mark the board button as answered
+            continueButton.classList.remove('hidden'); // Show continue button
+            continueButton.addEventListener('click', closeQuestionModal, { once: true }); // Ensure it only fires once
+        }
+
+        // Close the question modal
+        function closeQuestionModal() {
+            questionModal.classList.remove('show');
+            // Check if all questions are answered
+            if (questionsAnswered === totalQuestions) {
+                setTimeout(startFinalJeopardy, 500); // Small delay before final jeopardy
+            }
+        }
+
+        // Update score display
+        function updateScoreDisplay() {
+            playerScoreSpan.textContent = score;
+        }
+
+        // Show general messages
+        function showMessage(message, type = 'info') {
+            gameMessagesDiv.textContent = message;
+            gameMessagesDiv.classList.remove('hidden', 'text-green-400', 'text-red-400', 'text-yellow-400');
+            if (type === 'success') {
+                gameMessagesDiv.classList.add('text-green-400');
+            } else if (type === 'error') {
+                gameMessagesDiv.classList.add('text-red-400');
+            } else if (type === 'yellow') {
+                gameMessagesDiv.classList.add('text-yellow-400');
+            }
+            gameMessagesDiv.classList.remove('hidden');
+            setTimeout(() => {
+                gameMessagesDiv.classList.add('hidden');
+            }, 3000); // Hide message after 3 seconds
+        }
+
+        // Start Final Jeopardy
+        function startFinalJeopardy() {
+            gameBoardDiv.classList.add('hidden'); // Hide the board
+            finalJeopardyModal.classList.add('show');
+            finalJeopardyCategory.textContent = gameData.finalJeopardy.category;
+            finalJeopardyQuestion.textContent = gameData.finalJeopardy.question;
+            betAmountInput.max = score; // Max bet is current score
+            betAmountInput.value = Math.min(score, 1000); // Suggest a default bet, e.g., 1000 or current score if less
+            finalFeedback.textContent = '';
+            submitFinalJeopardyButton.classList.remove('hidden');
+            playAgainButton.classList.add('hidden');
+            betAmountInput.disabled = false;
+            finalAnswerInput.disabled = false;
+            finalAnswerInput.value = ''; // Clear previous input
+        }
+
+        // Handle Final Jeopardy submission
+        submitFinalJeopardyButton.addEventListener('click', () => {
+            let bet = parseInt(betAmountInput.value);
+            const finalAnswer = finalAnswerInput.value.trim();
+            const correctAnswer = gameData.finalJeopardy.correctAnswer.trim();
+
+            if (isNaN(bet) || bet < 0 || bet > score) {
+                finalFeedback.textContent = "Invalid bet amount. Please enter a valid number between 0 and your current score.";
+                finalFeedback.className = 'text-xl mt-4 font-bold text-red-400';
+                return;
+            }
+
+            betAmountInput.disabled = true;
+            finalAnswerInput.disabled = true;
+            submitFinalJeopardyButton.classList.add('hidden');
+
+            if (finalAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+                score += bet;
+                finalFeedback.textContent = `Correct! You gained ${bet} points. Your final score is ${score}.`;
+                finalFeedback.className = 'text-xl mt-4 font-bold text-green-400';
+            } else {
+                score -= bet;
+                finalFeedback.textContent = `Incorrect! You lost ${bet} points. The correct answer was: "${correctAnswer}". Your final score is ${score}.`;
+                finalFeedback.className = 'text-xl mt-4 font-bold text-red-400';
+            }
+            updateScoreDisplay();
+            playAgainButton.classList.remove('hidden');
+        });
+
+        // Play Again functionality
+        playAgainButton.addEventListener('click', () => {
+            score = 0;
+            questionsAnswered = 0;
+            totalQuestions = 0;
+            updateScoreDisplay();
+            finalJeopardyModal.classList.remove('show');
+            gameBoardDiv.classList.remove('hidden');
+            initializeGameBoard(); // Re-initialize the board for a new game
+        });
+
+        // Initialize the game when the window loads
+        window.onload = initializeGameBoard;
+
+    </script>
+</body>
+</html>
